@@ -1016,6 +1016,18 @@ export const countriesWithImage = countries.filter((c) =>
   countryCodesWithImage.includes(c.code.toLowerCase())
 );
 
+const europeanCountryCodes = new Set([
+  "AD", "AL", "AM", "AT", "AZ", "BA", "BE", "BG", "BY", "CH",
+  "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GE",
+  "GI", "GR", "HR", "HU", "IE", "IS", "IT", "LT", "LU", "LV",
+  "MD", "ME", "MK", "MT", "NL", "NO", "PL", "PT", "RO", "RS",
+  "RU", "SE", "SI", "SK", "SM", "TR", "UA",
+]);
+
+export const europeanCountriesWithImage = countriesWithImage.filter((c) =>
+  europeanCountryCodes.has(c.code)
+);
+
 export function getCountryName(language: string, country: Country | undefined) {
   return country?.name;
 }

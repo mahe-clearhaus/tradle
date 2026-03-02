@@ -13,6 +13,7 @@ import {
   getFictionalCountryByName,
   getCountryByName,
   countriesWithImage,
+  europeanCountriesWithImage,
 } from "../domain/countries";
 import { getCompassDirection } from "../domain/geography";
 import { useGuesses } from "../hooks/useGuesses";
@@ -29,11 +30,6 @@ import useConsentFromSearchParams from "../hooks/useConsentSearchParam";
 import { useOECSession, type OECSession } from "../hooks/useOECSession";
 import type { Guess } from "../domain/guess";
 
-function randomCountry() {
-  return countriesWithImage[
-    Math.floor(Math.random() * countriesWithImage.length)
-  ];
-}
 
 function getDayString() {
   // Parse query parameters from URL
@@ -61,7 +57,13 @@ const MAX_TRY_COUNT = 6;
 
 interface GameProps {
   settingsData: SettingsData;
-  mode?: "daily" | "practice" | "review";
+  mode?: "daily" | "practice" | "review" | "europe";
+}
+
+const isReviewStyle = (mode: string) => mode === "review" || mode === "europe";
+
+function poolForMode(mode: string) {
+  return mode === "europe" ? europeanCountriesWithImage : countriesWithImage;
 }
 
 export function Game({ settingsData, mode = "daily" }: GameProps) {
@@ -84,7 +86,9 @@ export function Game({ settingsData, mode = "daily" }: GameProps) {
   const [dailyCountryData] = useCountry(dayString);
 
   // Practice/review: random country per session
-  const [practiceCountry, setPracticeCountry] = useState(randomCountry);
+  const [practiceCountry, setPracticeCountry] = useState(() =>
+    poolForMode(mode)[Math.floor(Math.random() * poolForMode(mode).length)]
+  );
   const [practiceKey, setPracticeKey] = useState(
     () => `practice-${Date.now()}`
   );
@@ -92,13 +96,24 @@ export function Game({ settingsData, mode = "daily" }: GameProps) {
   const [revealed, setRevealed] = useState(false);
 
   const nextCountry = useCallback(() => {
-    setPracticeCountry(randomCountry());
+    const pool = poolForMode(mode);
+    setPracticeCountry(pool[Math.floor(Math.random() * pool.length)]);
     setPracticeKey(`practice-${Date.now()}`);
     setRevealed(false);
-  }, []);
+  }, [mode]);
+
+  // Reset to the correct pool when mode changes
+  useEffect(() => {
+    if (mode === "practice" || isReviewStyle(mode)) {
+      const pool = poolForMode(mode);
+      setPracticeCountry(pool[Math.floor(Math.random() * pool.length)]);
+      setPracticeKey(`practice-${Date.now()}`);
+      setRevealed(false);
+    }
+  }, [mode]);
 
   useEffect(() => {
-    if (mode !== "review") return;
+    if (!isReviewStyle(mode)) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         if (!revealed) {
@@ -113,7 +128,7 @@ export function Game({ settingsData, mode = "daily" }: GameProps) {
   }, [mode, revealed, nextCountry]);
 
   let country =
-    mode === "practice" || mode === "review"
+    mode === "practice" || isReviewStyle(mode)
       ? practiceCountry
       : dailyCountryData;
 
@@ -281,6 +296,11 @@ export function Game({ settingsData, mode = "daily" }: GameProps) {
           Review Mode
         </div>
       )}
+      {mode === "europe" && (
+        <div className="bg-green-50 border-l-4 border-green-400 text-green-700 p-2 mb-2 text-center dark:bg-green-900 dark:text-green-200">
+          Europe Review — {europeanCountriesWithImage.length} countries
+        </div>
+      )}
       {hideImageMode && !gameEnded && (
         <button
           className="border-2 uppercase my-2 hover:bg-gray-50 active:bg-gray-100 dark:hover:bg-slate-800 dark:active:bg-slate-700"
@@ -322,7 +342,7 @@ export function Game({ settingsData, mode = "daily" }: GameProps) {
           {t("cancelRotation")}
         </button>
       )}
-      {mode === "review" ? (
+      {isReviewStyle(mode) ? (
         <div className="text-center my-6 min-h-[3rem]">
           {revealed && (
             <div className="text-3xl font-bold">
@@ -340,7 +360,7 @@ export function Game({ settingsData, mode = "daily" }: GameProps) {
         />
       )}
       <div className="my-2">
-        {mode === "review" ? (
+        {isReviewStyle(mode) ? (
           <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">
             {revealed ? "↵ Enter — next country" : "↵ Enter — reveal answer"}
           </div>

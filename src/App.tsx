@@ -4,13 +4,14 @@ import { useTranslation } from "react-i18next";
 import { Flip, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Game } from "./components/Game";
+import { SRSGame } from "./components/SRSGame";
 import { Infos } from "./components/panels/Infos";
 import { InfosFr } from "./components/panels/InfosFr";
 import { Settings } from "./components/panels/Settings";
 import { Stats } from "./components/panels/Stats";
 import { useSettings } from "./hooks/useSettings";
 
-type GameMode = "daily" | "practice" | "review";
+type GameMode = "daily" | "practice" | "review" | "europe" | "srs";
 
 function App() {
   const { i18n } = useTranslation();
@@ -103,7 +104,7 @@ function App() {
                 width="120"
               />
               <div className="flex justify-center gap-1 mt-1">
-                {(["daily", "practice", "review"] as GameMode[]).map((m) => (
+                {(["daily", "practice", "review", "europe", "srs"] as GameMode[]).map((m) => (
                   <button
                     key={m}
                     type="button"
@@ -152,7 +153,11 @@ function App() {
               </svg>
             </button> */}
           </header>
-          <Game settingsData={settingsData} mode={gameMode} />
+          {gameMode === "srs" ? (
+            <SRSGame settingsData={settingsData} />
+          ) : (
+            <Game settingsData={settingsData} mode={gameMode} />
+          )}
           <footer className="flex justify-center text-sm mt-8 mb-1">
             <a
               className="text-center underline pl-1 bg-yellow-200 px-1 rounded"
