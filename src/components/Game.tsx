@@ -12,6 +12,7 @@ import {
   countryISOMapping,
   getFictionalCountryByName,
   getCountryByName,
+  countriesWithImage,
 } from "../domain/countries";
 import { getCompassDirection } from "../domain/geography";
 import { useGuesses } from "../hooks/useGuesses";
@@ -27,6 +28,12 @@ import axios from "axios";
 import useConsentFromSearchParams from "../hooks/useConsentSearchParam";
 import { useOECSession, type OECSession } from "../hooks/useOECSession";
 import type { Guess } from "../domain/guess";
+
+function randomCountry() {
+  return countriesWithImage[
+    Math.floor(Math.random() * countriesWithImage.length)
+  ];
+}
 
 function getDayString() {
   // Parse query parameters from URL
@@ -54,9 +61,10 @@ const MAX_TRY_COUNT = 6;
 
 interface GameProps {
   settingsData: SettingsData;
+  mode?: "daily" | "practice" | "review";
 }
 
-export function Game({ settingsData }: GameProps) {
+export function Game({ settingsData, mode = "daily" }: GameProps) {
   const { t, i18n } = useTranslation();
   const dayString = useMemo(getDayString, []);
   const isAprilFools = dayString.endsWith("04-01");
@@ -73,10 +81,43 @@ export function Game({ settingsData }: GameProps) {
 
   const session: OECSession = useOECSession();
 
-  const countryData = useCountry(`${dayString}`);
-  let country = countryData[0];
+  const [dailyCountryData] = useCountry(dayString);
 
-  if (isAprilFools) {
+  // Practice/review: random country per session
+  const [practiceCountry, setPracticeCountry] = useState(randomCountry);
+  const [practiceKey, setPracticeKey] = useState(
+    () => `practice-${Date.now()}`
+  );
+
+  const [revealed, setRevealed] = useState(false);
+
+  const nextCountry = useCallback(() => {
+    setPracticeCountry(randomCountry());
+    setPracticeKey(`practice-${Date.now()}`);
+    setRevealed(false);
+  }, []);
+
+  useEffect(() => {
+    if (mode !== "review") return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        if (!revealed) {
+          setRevealed(true);
+        } else {
+          nextCountry();
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [mode, revealed, nextCountry]);
+
+  let country =
+    mode === "practice" || mode === "review"
+      ? practiceCountry
+      : dailyCountryData;
+
+  if (isAprilFools && mode === "daily") {
     country = {
       code: "AJ",
       latitude: 42.546245,
@@ -85,10 +126,12 @@ export function Game({ settingsData }: GameProps) {
     };
   }
 
+  const guessesKey = mode === "practice" ? practiceKey : dayString;
+
   const [ipData, setIpData] = useState(null);
   const [currentGuess, setCurrentGuess] = useState<string>("");
   const [countryValue, setCountryValue] = useState<string>("");
-  const [guesses, addGuess] = useGuesses(dayString);
+  const [guesses, addGuess] = useGuesses(guessesKey);
   const [hideImageMode, setHideImageMode] = useMode(
     "hideImageMode",
     dayString,
@@ -217,8 +260,8 @@ export function Game({ settingsData }: GameProps) {
 
   return (
     <div className="flex-grow flex flex-col mx-2 relative">
-      {/* Add an indicator for historical puzzles */}
-      {isHistoricalPuzzle && (
+      {/* Mode banners */}
+      {mode === "daily" && isHistoricalPuzzle && (
         <div
           className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-2 mb-2"
           role="alert"
@@ -226,6 +269,16 @@ export function Game({ settingsData }: GameProps) {
           <p className="text-center">
             You are playing a historical puzzle from {dayString}
           </p>
+        </div>
+      )}
+      {mode === "practice" && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 text-blue-700 p-2 mb-2 text-center dark:bg-blue-900 dark:text-blue-200">
+          Practice Mode — random country
+        </div>
+      )}
+      {mode === "review" && (
+        <div className="bg-green-50 border-l-4 border-green-400 text-green-700 p-2 mb-2 text-center dark:bg-green-900 dark:text-green-200">
+          Review Mode
         </div>
       )}
       {hideImageMode && !gameEnded && (
@@ -269,16 +322,35 @@ export function Game({ settingsData }: GameProps) {
           {t("cancelRotation")}
         </button>
       )}
-      <Guesses
-        rowCount={MAX_TRY_COUNT}
-        guesses={guesses}
-        settingsData={settingsData}
-        countryInputRef={countryInputRef}
-        isAprilFools={isAprilFools}
-      />
+      {mode === "review" ? (
+        <div className="text-center my-6 min-h-[3rem]">
+          {revealed && (
+            <div className="text-3xl font-bold">
+              {country ? getCountryName(i18n.resolvedLanguage, country) : ""}
+            </div>
+          )}
+        </div>
+      ) : (
+        <Guesses
+          rowCount={MAX_TRY_COUNT}
+          guesses={guesses}
+          settingsData={settingsData}
+          countryInputRef={countryInputRef}
+          isAprilFools={isAprilFools}
+        />
+      )}
       <div className="my-2">
-        {gameEnded ? (
+        {mode === "review" ? (
+          <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2">
+            {revealed ? "↵ Enter — next country" : "↵ Enter — reveal answer"}
+          </div>
+        ) : gameEnded ? (
           <>
+            {mode === "practice" && (
+              <div className="text-xl font-bold text-center my-2">
+                {country ? getCountryName(i18n.resolvedLanguage, country) : ""}
+              </div>
+            )}
             <Share
               guesses={guesses}
               dayString={dayString}
@@ -288,28 +360,41 @@ export function Game({ settingsData }: GameProps) {
               won={guesses[guesses.length - 1]?.distance === 0}
               isAprilFools={isAprilFools}
             />
-            <a
-              className="underline w-full text-center block mt-4 flex justify-center"
-              href={oecLink}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+            {mode === "practice" && (
+              <div className="text-center mt-4">
+                <button
+                  type="button"
+                  className="bg-gray-800 text-white dark:bg-white dark:text-gray-900 px-6 py-2 rounded hover:bg-gray-700 dark:hover:bg-gray-100 font-bold"
+                  onClick={nextCountry}
+                >
+                  New Country →
+                </button>
+              </div>
+            )}
+            {mode === "daily" && (
+              <a
+                className="underline w-full text-center block mt-4 flex justify-center"
+                href={oecLink}
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
-              {t("showOnGoogleMaps")}
-            </a>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+                {t("showOnGoogleMaps")}
+              </a>
+            )}
             {isAprilFools ? (
               <div className="w-full text-center block mt-4 flex flex-col justify-center text-2xl font-bold">
                 <div>🐶 🚲 🌪 🏚</div>
@@ -327,12 +412,6 @@ export function Game({ settingsData }: GameProps) {
                 setCurrentGuess={setCurrentGuess}
                 isAprilFools={isAprilFools}
               />
-              {/* <button
-                className="border-2 uppercase my-0.5 hover:bg-gray-50 active:bg-gray-100 dark:hover:bg-slate-800 dark:active:bg-slate-700"
-                type="submit"
-              >
-                🌍 {t("guess")}
-              </button> */}
               <div className="text-left">
                 <button className="my-2 inline-block justify-end bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded items-center">
                   {isAprilFools ? "🪄" : "🌍"} <span>Guess</span>

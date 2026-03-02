@@ -10,12 +10,15 @@ import { Settings } from "./components/panels/Settings";
 import { Stats } from "./components/panels/Stats";
 import { useSettings } from "./hooks/useSettings";
 
+type GameMode = "daily" | "practice" | "review";
+
 function App() {
   const { i18n } = useTranslation();
 
   const [infoOpen, setInfoOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode>("daily");
 
   const [settingsData, updateSettings] = useSettings();
 
@@ -99,6 +102,22 @@ function App() {
                 alt="logo"
                 width="120"
               />
+              <div className="flex justify-center gap-1 mt-1">
+                {(["daily", "practice", "review"] as GameMode[]).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setGameMode(m)}
+                    className={`px-2 py-0.5 rounded capitalize text-xs border ${
+                      gameMode === m
+                        ? "bg-gray-800 text-white dark:bg-white dark:text-gray-900"
+                        : "border-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
             </h1>
             <button
               className="ml-3 text-xl"
@@ -133,7 +152,7 @@ function App() {
               </svg>
             </button> */}
           </header>
-          <Game settingsData={settingsData} />
+          <Game settingsData={settingsData} mode={gameMode} />
           <footer className="flex justify-center text-sm mt-8 mb-1">
             <a
               className="text-center underline pl-1 bg-yellow-200 px-1 rounded"
