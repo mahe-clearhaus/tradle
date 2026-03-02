@@ -5,13 +5,14 @@ import { Flip, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Game } from "./components/Game";
 import { SRSGame } from "./components/SRSGame";
+import { CountryLookup } from "./components/CountryLookup";
 import { Infos } from "./components/panels/Infos";
 import { InfosFr } from "./components/panels/InfosFr";
 import { Settings } from "./components/panels/Settings";
 import { Stats } from "./components/panels/Stats";
 import { useSettings } from "./hooks/useSettings";
 
-type GameMode = "daily" | "practice" | "review" | "europe" | "srs";
+type GameMode = "daily" | "practice" | "review" | "europe" | "srs" | "lookup";
 
 function App() {
   const { i18n } = useTranslation();
@@ -104,7 +105,7 @@ function App() {
                 width="120"
               />
               <div className="flex justify-center gap-1 mt-1">
-                {(["daily", "practice", "review", "europe", "srs"] as GameMode[]).map((m) => (
+                {(["daily", "practice", "review", "europe", "srs", "lookup"] as GameMode[]).map((m) => (
                   <button
                     key={m}
                     type="button"
@@ -155,6 +156,8 @@ function App() {
           </header>
           {gameMode === "srs" ? (
             <SRSGame settingsData={settingsData} />
+          ) : gameMode === "lookup" ? (
+            <CountryLookup />
           ) : (
             <Game settingsData={settingsData} mode={gameMode} />
           )}
